@@ -78,6 +78,9 @@ body{
 @keyframes ring{0%{opacity:0;transform:scale(1.7)}18%{opacity:1}70%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.92)}}
 .blackout{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none}
 .blackout.on{opacity:1}
+.camstart{position:absolute;left:50%;bottom:4.2cqw;transform:translateX(-50%);display:flex;align-items:center;gap:1cqw;padding:1.5cqw 3cqw;border-radius:4cqw;border:.2cqw solid rgba(255,255,255,.75);background:rgba(8,8,9,.72);backdrop-filter:blur(6px);color:#f4f5f6;font:500 2.1cqw/1 var(--cjk-sans);cursor:pointer;box-shadow:0 .6cqw 2cqw rgba(0,0,0,.6)}
+.camstart svg{width:3cqw;height:3cqw}
+.camstart:active{transform:translateX(-50%) scale(.97)}
 .tag{position:absolute;left:2.2cqw;bottom:2cqw;font:500 1.55cqw/1 var(--cjk-sans);letter-spacing:.1cqw;color:rgba(255,255,255,.72);background:rgba(0,0,0,.45);padding:.7cqw 1.1cqw;border-radius:.6cqw;pointer-events:none;backdrop-filter:blur(2px)}
 
 .tbtn{position:absolute;width:5.9cqw;height:5.9cqw;top:11.1%;border-radius:50%;border:.18cqw solid rgba(255,255,255,.72);background:radial-gradient(circle at 50% 30%,#232427,#0b0c0d);color:#f1f2f3;display:grid;place-items:center;padding:0;cursor:pointer;box-shadow:0 .4cqw 1cqw rgba(0,0,0,.7),inset 0 0 0 .3cqw #000}
@@ -161,6 +164,7 @@ input[type=range]:focus-visible,.dial:focus-visible,button:focus-visible{outline
     <div class="grid" id="grid" hidden></div>
     <div class="ring" id="ring"></div>
     <div class="tag" id="tag" hidden></div>
+    <button class="camstart" id="camStart" hidden aria-label="开启相机"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3.5 8.2h3.2l1.5-2.2h7.6l1.5 2.2h3.2v10.3h-17z"/><circle cx="12" cy="13.2" r="3.4"/></svg><span>开启相机</span></button>
     <div class="blackout" id="black"></div>
     <div class="nogl" id="nogl">这个浏览器不支持 WebGL2 浮点渲染,取景器无法显示。请换用较新的 Safari、Chrome 或 Edge。</div>
   </div>
@@ -814,7 +818,10 @@ $("#depthInv").addEventListener("click", async e => { depthInv = !depthInv; e.cu
 
 /* ---------- live camera ---------- */
 const LIVE_N = 512, SMALL = 96;
-const live = { on:false, video:null, stream:null, cv:null, cx:null, sv:null, sx:null, hdr:null, sdr:null, tBig:null, tSmall:null, frame:0, lastT:0 };
+const camBtn = $("#camStart");
+const camOk = () => !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+function syncCamBtn(){ camBtn.hidden = !camOk() || live.on; }
+var live = { on:false, video:null, stream:null, cv:null, cx:null, sv:null, sx:null, hdr:null, sdr:null, tBig:null, tSmall:null, frame:0, lastT:0 };
 function ensureLiveBuffers(){
   if (live.hdr) return;
   live.cv = document.createElement("canvas"); live.cv.width = live.cv.height = LIVE_N; live.cx = live.cv.getContext("2d", { willReadFrequently:true });
@@ -832,7 +839,7 @@ async function startLive(){
     v.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none"; document.body.appendChild(v);
     await v.play();
     ensureLiveBuffers(); live.video = v; live.stream = stream; live.on = true; live.frame = 0;
-    S.depthKind = "live"; setStatus(); return true;
+    S.depthKind = "live"; setStatus(); syncCamBtn(); return true;
   } catch (err) {
     toast(err && err.name === "NotAllowedError" ? "相机被拒绝。claude.ai 页面内不允许,请用自己的 https 网址打开" : "相机无法启动"); return false;
   }
@@ -841,7 +848,7 @@ function stopLive(){
   if (!live.on) return;
   live.on = false; if (live.stream) live.stream.getTracks().forEach(t => t.stop());
   if (live.video){ live.video.srcObject = null; live.video.remove(); } live.video = null; live.stream = null;
-  $("#srcLive").setAttribute("aria-pressed", "false");
+  $("#srcLive").setAttribute("aria-pressed", "false"); syncCamBtn();
 }
 function liveStep(now){
   const v = live.video; if (!v || v.readyState < 2 || now - live.lastT < 55) return;
@@ -890,7 +897,10 @@ $("#srcLive").addEventListener("click", async () => {
   if (live.on){ stopLive(); await loadDemo(); return; }
   if (await startLive()){ $("#srcLive").setAttribute("aria-pressed", "true"); sheet.hidden = true; toast("实时相机已开启"); }
 });
+camBtn.addEventListener("pointerdown", e => e.stopPropagation());
+camBtn.addEventListener("click", async () => { if (await startLive()) toast("相机已开启,点画面对焦"); });
 $("#srcShoot").addEventListener("click", () => $("#fileShoot").click());
+syncCamBtn();
 $("#fileShoot").addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
   try { stopLive(); src.live = false; const im = await loadImg(URL.createObjectURL(f)); src.photo = im; src.depthRaw = null; await applyPhoto(); toast("已载入照片"); sheet.hidden = true; }
