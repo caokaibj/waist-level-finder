@@ -1,2 +1,8 @@
-# waist-level-finder
-old fashion camera
+# 腰平取景器 / Waist Level Finder
+
+在手机浏览器里模拟腰平取景器毛玻璃的景深、散景、玻璃柔光和倾斜视差。
+
+- 页面:`index.html`(单文件,无需构建)
+- 需要 https 才能使用实时相机和陀螺仪;「拍一张」和「选择照片」在任何环境都可用
+- 没有深度图时,深度由画面粗略估计,仅作试看
+- 光学部分:`index.html` 内的两段 GLSL 着色器(景深虚化、玻璃合成)
